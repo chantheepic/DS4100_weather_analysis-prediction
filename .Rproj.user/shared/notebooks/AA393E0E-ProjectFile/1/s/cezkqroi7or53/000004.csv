@@ -1,0 +1,11 @@
+"0","noaaData <- distinct(rbind(dbGetQuery(db, ""SELECT * FROM acc1_raw""), dbGetQuery(db, ""SELECT * FROM acc2_raw""), dbGetQuery(db, ""SELECT * FROM acc3_raw""), dbGetQuery(db, ""SELECT * FROM acc4_raw"")))"
+"0","noaaDataClean <- na.omit(noaaData)"
+"0","noaaDataClean$attributes <-NULL"
+"0","datatypes <- unique(noaaDataClean$datatype)"
+"0","noaaDataClean <- spread(noaaDataClean, datatype, value)"
+"0","noaaStandardData <- noaaDataClean[c(""date"", ""station"", ""TMAX"", ""TMIN"", ""PRCP"")]"
+"0","#dbRemoveTable(db, ""n_weather_summary"")"
+"0","dbSendQuery(conn = db, ""CREATE TABLE n_weather_summary (date TEXT, station TEXT, TMAX DOUBLE, TMIN DOUBLE, PRCP DOUBLE)"")"
+"2","Error in result_create(conn@ptr, statement) : 
+  table n_weather_summary already exists
+"

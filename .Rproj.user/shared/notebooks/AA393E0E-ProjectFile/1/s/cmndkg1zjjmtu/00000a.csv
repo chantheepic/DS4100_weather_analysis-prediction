@@ -1,0 +1,6 @@
+"0","# missmaps show that all data is now present. At this pont, all data sets have been standardized and can be merged and used for modelling.
+Amelia::missmap(TMAX, main = ""TMAX final clean"")
+# missmaps show that all data is now present. At this pont, all data sets have been standardized and can be merged and used for modelling.
+Amelia::missmap(TMAX, main = ""TMAX final clean"")
+"
+"0","Amelia::missmap(TMIN, main = ""TMIN final clean"")"

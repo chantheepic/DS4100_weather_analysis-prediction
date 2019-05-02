@@ -1,0 +1,4 @@
+"0","library(ggplot2)"
+"0","# This block of code is meant to explore the dataset and find patterns or correlations in the NOAA dataset."
+"0","# After normalizing the data, it is possible to see that the pricipitation data has lots of outliers. This is not surprising given that heavy pricipitation likely means that it's raining and rain is not a daily occurance."
+"0","boxplot(scale(noaa_data[3:5]), main = ""Normalized boxplot of the NOAA dataset"")"

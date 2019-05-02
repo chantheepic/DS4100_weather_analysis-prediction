@@ -1,0 +1,6 @@
+"0","# The missmaps show a greatly reduced number of missing information.
+Amelia::missmap(TMAX, main = ""TMAX initial clean"")
+# The missmaps show a greatly reduced number of missing information.
+Amelia::missmap(TMAX, main = ""TMAX initial clean"")
+"
+"0","Amelia::missmap(TMIN, main = ""TMIN initial clean"")"

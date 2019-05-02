@@ -1,0 +1,6 @@
+"0","```r
+# test model against test data set and determine prediction accuracy. Survival threshold set at 0.5
+response <- data.frame(id = test$PassengerId, prediction = predict(regression, test, type = \"response\"))
+survivalPrediction <- filter(response, response$prediction >= 0.5)
+survivalPrediction
+```"

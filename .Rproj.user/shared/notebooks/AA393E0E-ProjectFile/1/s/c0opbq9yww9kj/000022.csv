@@ -1,0 +1,5 @@
+"0","# This graph shows the max daily temperature data observed by the different stations over a span of 6 years. The correlation of temperature over time is quite evident. It would be awkward if it was warm during the summer."
+"0","ggplot(noaa_data, aes(x = date, y = TMAX, color = station)) + "
+"0","  geom_point() + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + "
+"0","  ggtitle(""Daily Max temperature observed by all weather stations in MA between 2012 and 2017"") +"
+"0","  xlab(""Date"") + ylab(""Observed Temperature in C"")"

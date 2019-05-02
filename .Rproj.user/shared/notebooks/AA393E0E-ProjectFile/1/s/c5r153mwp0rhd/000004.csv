@@ -1,0 +1,29 @@
+"0","identicalDates <- all(sapply(list(pressure_csv$datetime, temperature_csv$datetime, weather_observation_csv$datetime, wind_direction_csv$datetime, wind_speed_csv$datetime), FUN = identical, humidity_csv$datetime))
+if(identicalDates){
+  kaggleRecord <- data.frame(""date"" = str_extract(humidity_csv$datetime, ""\\d\\d-\\d\\d-\\d\\d""), ""time"" = str_extract(humidity_csv$datetime, ""\\d\\d:\\d\\d:\\d\\d""), ""humidity"" = humidity_csv$Boston, ""pressure"" = pressure_csv$Boston, ""temperature"" = temperature_csv$Boston, ""observation"" = weather_observation_csv$Boston, ""wind_direction"" = wind_direction_csv$Boston, ""wind_speed"" = wind_speed_csv$Boston)
+  
+  kaggleRecordClean <- na.omit(kaggleRecord)
+}
+dbRemoveTable(db, ""k_weather_summary"")
+dbSendQuery(conn = db, ""CREATE TABLE k_weather_summary (date TEXT, time TEXT, humidity DOUBLE, pressure DOUBLE, temperature DOUBLE, observation TEXT, wind_direction INT, wind_speed INT)"")
+"
+"1","<"
+"1","SQLiteResult"
+"1",">
+"
+"1","  SQL  "
+"1","CREATE TABLE k_weather_summary (date TEXT, time TEXT, humidity DOUBLE, pressure DOUBLE, temperature DOUBLE, observation TEXT, wind_direction INT, wind_speed INT)"
+"1","
+"
+"1","  ROWS Fetched: "
+"1","0"
+"1"," ["
+"1","complete"
+"1","]
+"
+"1","       Changed: "
+"1","0"
+"1","
+"
+"0","dbWriteTable(conn = db, name = ""k_weather_summary"", value = kaggleRecordClean, append = TRUE)"
+"2","Closing open result set, pending rows"

@@ -1,0 +1,439 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+# Packages
+install.packages("httr")
+install.packages("jsonlite")
+install.packages("sqldf")
+
+# packages used to download, clean, and analyze data.
+library(tidyverse)
+library(lubridate)
+library(httr)
+library(jsonlite)
+library(sqldf)
+db <- dbConnect(SQLite(), dbname="projdb.sqlite")
+sqldf("attach 'projdb.sqlite' as new")
+# NOAA web token: WtKkRgeGgHfecIeWDHYoZULBIiUqfOrU
+```
+
+```{r}
+# Utility function that takes in the arguments for the web api as a string and returns a parsed json in a dataframe.
+fetch <- function(arguments){
+  url <- paste("https://www.ncdc.noaa.gov/cdo-web/api/v2/", arguments, "&limit=1000", sep = "")
+  key <- "WtKkRgeGgHfecIeWDHYoZULBIiUqfOrU"
+  fetched <- GET(url, add_headers(token = key))
+  encoded <- content(fetched, as = "text", encoding = "UTF-8")
+  
+  if(validate(encoded)){
+    data <- fromJSON(encoded)
+  } else {
+    data <- data.frame(result = NA)
+  }
+  return(data)
+}
+```
+
+```{r}
+# This block of code is used to retreive the list of weather stations in MA using the NOAA web api.
+
+#dbRemoveTable(db, "stations")
+# Create a table in db that will store all stations in MA
+dbSendQuery(conn = db, "CREATE TABLE stations (id TEXT, name TEXT, longitude INTEGER, latitude INTEGER, elevation INTEGER)")
+
+#weather stations in MA that report daily weather summaries
+weatherStations <- fetch("stations?locationid=FIPS:25&datasetid=GHCND&datasetid=NORMAL_DLY")
+weatherStations <- weatherStations$results
+weatherStations <- weatherStations[c("id", "name", "longitude", "latitude", "elevation")]
+weatherStations
+
+dbWriteTable(conn = db, name = "stations", value = weatherStations, append = TRUE)
+dbListTables(db)
+dbReadTable(db, "stations")
+```
+
+```{r}
+#This utility function takes in a list of dates and retreives the daily summary for all stations for the given dates. Returns the data as a dataframe.
+weatherStations <- dbGetQuery(db, "SELECT id FROM stations")
+allStations <- str_c(weatherStations$id, collapse = "&stationid=")
+
+ghcnd <- function(dates){
+  acc <- data.frame()
+  
+  for(i in c(1:length(dates))){
+  day <- dates[i]
+  curlArg <- paste("data?datasetid=GHCND&units=metric&stationid=", allStations, "&startdate=", day, "&enddate=", day, sep = "")
+  
+  fetched <- fetch(curlArg)
+  acc <- rbind(acc, fetched$result)
+  }
+  
+  return(acc)
+}
+```
+
+```{r}
+# This block of code fetches the daily summary data from NOAA over a span of dates from 2012-10-01 to 2017-12-31. Fetching is done across multiple calls becauses parts of the call would fail sometimes and I didn't want to accidentally burn through the call limit NOAA places.
+
+dates <- seq(as.Date("2012-10-01"), as.Date("2017-12-31"), by = "days")
+length(dates)
+
+# the calls to NOAA is done at 30 daty at a time. A slight overlap is placed so that it is guaranteed to have all data.
+acc1 <- data.frame()
+for(i in c(1:21)){
+  start <- (i - 1)*30 + 1
+  end <- (i - 1)*30 + 30
+  acc1 <- rbind(acc1, ghcnd(dates[start:end]))
+}
+
+acc2 <- data.frame()
+for(i in c(21:41)){
+  start <- (i - 1)*30 + 1
+  end <- (i - 1)*30 + 30
+  acc2 <- rbind(acc2, ghcnd(dates[start:end]))
+}
+
+acc3 <- data.frame()
+for(i in c(41:61)){
+  start <- (i - 1)*30 + 1
+  end <- (i - 1)*30 + 30
+  acc3 <- rbind(acc3, ghcnd(dates[start:end]))
+}
+
+acc4 <- data.frame()
+for(i in c(61:64)){
+  start <- (i - 1)*30 + 1
+  end <- (i - 1)*30 + 30
+  acc4 <- rbind(acc4, ghcnd(dates[start:end]))
+}
+
+# This block of code takes the data retreived and saves them as separate tables in the database.
+
+#dbRemoveTable(db, "acc1_raw")
+dbSendQuery(conn = db, "CREATE TABLE acc1_raw (date TEXT, datatype TEXT, station TEXT, attributes TEXT, value DOUBLE)")
+dbWriteTable(conn = db, name = "acc1_raw", value = acc1, append = TRUE)
+
+#dbRemoveTable(db, "acc2_raw")
+dbSendQuery(conn = db, "CREATE TABLE acc2_raw (date TEXT, datatype TEXT, station TEXT, attributes TEXT, value DOUBLE)")
+dbWriteTable(conn = db, name = "acc2_raw", value = acc2, append = TRUE)
+
+#dbRemoveTable(db, "acc3_raw")
+dbSendQuery(conn = db, "CREATE TABLE acc3_raw (date TEXT, datatype TEXT, station TEXT, attributes TEXT, value DOUBLE)")
+dbWriteTable(conn = db, name = "acc3_raw", value = acc3, append = TRUE)
+
+#dbRemoveTable(db, "acc4_raw")
+dbSendQuery(conn = db, "CREATE TABLE acc4_raw (date TEXT, datatype TEXT, station TEXT, attributes TEXT, value DOUBLE)")
+dbWriteTable(conn = db, name = "acc4_raw", value = acc4, append = TRUE)
+```
+
+```{r}
+# This block of code does preliminary merging and extraction of the 4 calls above.
+
+# Retreive relevant tables from the database and merge all the NOAA calls into a single dataframe.
+noaaData <- distinct(rbind(dbGetQuery(db, "SELECT * FROM acc1_raw"), dbGetQuery(db, "SELECT * FROM acc2_raw"), dbGetQuery(db, "SELECT * FROM acc3_raw"), dbGetQuery(db, "SELECT * FROM acc4_raw")))
+noaaDataClean <- na.omit(noaaData)
+noaaDataClean$attributes <-NULL
+
+# The overlaping entries are removed and the relevant columns are extracted and stored in the database as a separate table.
+datatypes <- unique(noaaDataClean$datatype)
+noaaDataClean <- spread(noaaDataClean, datatype, value)
+noaaStandardData <- noaaDataClean[c("date", "station", "TMAX", "TMIN", "PRCP")]
+
+#dbRemoveTable(db, "n_weather_summary")
+dbSendQuery(conn = db, "CREATE TABLE n_weather_summary (date TEXT, station TEXT, TMAX DOUBLE, TMIN DOUBLE, PRCP DOUBLE)")
+dbWriteTable(conn = db, name = "n_weather_summary", value = noaaStandardData, append = TRUE)
+```
+
+```{r}
+# For the weather observation, pressure, humitidy, and wind information, data from kaggle was used. Because Kaggle doesn't offer an api compatible with R, the data was downloaded as a csv file and them imported into R.
+
+humidity_csv <- read.csv("humidity.csv")
+pressure_csv <- read.csv("pressure.csv")
+temperature_csv <- read.csv("temperature.csv")
+weather_observation_csv <- read.csv("weather_description.csv")
+wind_direction_csv <- read.csv("wind_direction.csv")
+wind_speed_csv <- read.csv("wind_speed.csv")
+
+
+# check if the dates in the 6 csv files are identical. if they are, then it should be safe to merge the kaggle data into a single dataframe.
+identicalDates <- all(sapply(list(pressure_csv$datetime, temperature_csv$datetime, weather_observation_csv$datetime, wind_direction_csv$datetime, wind_speed_csv$datetime), FUN = identical, humidity_csv$datetime))
+
+if(identicalDates){
+  kaggleRecord <- data.frame("date" = str_extract(humidity_csv$datetime, "\\d\\d-\\d\\d-\\d\\d"), "time" = str_extract(humidity_csv$datetime, "\\d\\d:\\d\\d:\\d\\d"), "humidity" = humidity_csv$Boston, "pressure" = pressure_csv$Boston, "temperature" = temperature_csv$Boston, "observation" = weather_observation_csv$Boston, "wind_direction" = wind_direction_csv$Boston, "wind_speed" = wind_speed_csv$Boston)
+  
+  kaggleRecordClean <- na.omit(kaggleRecord)
+}
+
+# save the resulting dataframe of aggregate kaggle weather data into a single table.
+
+#dbRemoveTable(db, "k_weather_summary")
+dbSendQuery(conn = db, "CREATE TABLE k_weather_summary (date TEXT, time TEXT, humidity DOUBLE, pressure DOUBLE, temperature DOUBLE, observation TEXT, wind_direction INT, wind_speed INT)")
+dbWriteTable(conn = db, name = "k_weather_summary", value = kaggleRecordClean, append = TRUE)
+```
+
+```{r}
+# At this point, objects from the workspace was cleared. Then, a missmap was created to find how much of the data imported was missing. This was done using a missmap
+db <- dbConnect(SQLite(), dbname="projdb.sqlite")
+noaa_data <- dbGetQuery(db, "SELECT * FROM n_weather_summary")
+kaggle_data <- dbGetQuery(db, "SELECT * FROM k_weather_summary")
+
+Amelia::missmap(noaa_data, main = "NOAA data Missingness Map")
+Amelia::missmap(kaggle_data, main = "Kaggle data Missingness Map")
+# looks like there are some missing information in the NOAA data.
+```
+
+```{r}
+library(ggplot2)
+# This block of code is meant to explore the dataset and find patterns or correlations in the NOAA dataset.
+
+# After normalizing the data, it is possible to see that the pricipitation data has lots of outliers. This is not surprising given that heavy pricipitation likely means that it's raining and rain is not a daily occurance.
+boxplot(scale(noaa_data[3:5]), main = "Normalized boxplot of the NOAA dataset")
+
+# This graph shows the max daily temperature data observed by the different stations over a span of 6 years. The correlation of temperature over time is quite evident. It would be awkward if it was warm during the summer.
+ggplot(noaa_data, aes(x = date, y = TMAX, color = station)) + 
+  geom_point() + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  ggtitle("Daily Max temperature observed by all weather stations in MA between 2012 and 2017") +
+  xlab("Date") + ylab("Observed Temperature in C")
+# because the graph is quite big, it needed to be saved as a separate file
+ggsave("TMAX.png", width = 100, height = 20, units = "cm")
+ggsave("TMAX_detailed.png", width = 500, height = 20, units = "cm", limitsize = FALSE)
+
+# This graph shows the precipitation data observed by the different stations over a span of 6 years. The correlation of pricipation over time is less clear, but there clearly are times where there is greater precipitation.
+ggplot(noaa_data, aes(x = date, y = PRCP, color = station)) + 
+  geom_point() + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  ggtitle("Daily Precipitation observed by all weather stations in MA between 2012 and 2017") +
+  xlab("Date") + ylab("Recorded Pricipitation in/24hr")
+# because the graph is quite big, it needed to be saved as a separate file
+ggsave("PRCP.png", width = 100, height = 20, units = "cm")
+ggsave("PRCP_detailed.png", width = 500, height = 20, units = "cm", limitsize = FALSE)
+
+noaa_na_removed <- na.omit(noaa_data)
+# Correlation between Max and Min daily temperatures, not surprisingly, there is a correlation.
+cor(noaa_na_removed$TMAX, noaa_na_removed$TMIN)
+# Correlation between Max Precipitation and Temperature, there does not seem to be a significant correlation.
+cor(noaa_na_removed$TMAX, noaa_na_removed$PRCP)
+# Correlation between Min Precipitation and Temperature, there does not seem to be a significant correlation.
+cor(noaa_na_removed$TMIN, noaa_na_removed$PRCP)
+```
+
+```{r}
+# This block of code is meant to explore the dataset and find patterns or correlations in the Kaggle dataset.
+
+# It is possible to see that there is a lot of ouliers between the pressure and windspeed. This is not very surprising since wind is an irregular characteristic of weatehr and wind is generated by changes in pressure (which also has a lot of outliers). What is more surprising is that humidity shows less outliers than the precipitation data from the NOAA dataset. Perhaps there is not much correlation between rain, pressure, and humidity.
+boxplot(scale(kaggle_data[c(3,4,5,7,8)]), main = "Normalized boxplot of the Kaggle dataset")
+
+# The graph below shows the frequency of rain, drizzle, or mist observations stacked by year. The summer months seem to show a slight increase in rain.
+rainObs <- str_detect(kaggle_data$observation, "rain|drizzle|mist")
+months <- lapply(kaggle_data["date"], function(x) month(as.Date(x, format = "%y-%m-%d")))
+years <- lapply(kaggle_data["date"], function(x) year(as.Date(x, format = "%y-%m-%d")))
+rainObservation <- data.frame("year" = years$date, "month" = months$date, "rain" = rainObs)
+rainObservation <- filter(rainObservation, rain == TRUE)
+rainObservation <- table(rainObservation)
+rainObservation <- data.frame(rainObservation)
+
+ggplot(data=rainObservation, aes(x=month, y=Freq, fill=year)) +
+  geom_bar(stat="identity") + 
+  ggtitle("Frequency of rain, drizzle, or mist observation stacked by year") +
+  xlab("Date") + ylab("Observation Frequency")
+
+# The graph below shows the frequency of rain, drizzle, or mist observations grouped by year. There does not seem to be a increase or decrease in frequency of rain over the years, but once again, the summer months seem to show a slight increase in rain.
+spreadDates <- paste(rainObservation$year,rainObservation$month)
+rainObservationSpread <- data.frame("date" = spreadDates, "month" = as.integer(rainObservation$month), "Freq" = rainObservation$Freq)
+
+ggplot(data=rainObservationSpread, aes(x=reorder(date,month), y=Freq, fill=-month)) +
+  geom_bar(stat="identity") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  geom_bar(stat="identity") + 
+  ggtitle("Frequency of rain, drizzle, or mist observation grouped by year") +
+  xlab("Date") + ylab("Observation Frequency")
+
+
+# In gneral, there seems to be little correlation between the different variables stored in the kaggle dataset.
+cor(kaggle_data$humidity, kaggle_data$pressure)
+cor(kaggle_data$humidity, rainObs)
+cor(kaggle_data$pressure, rainObs)
+# notable. Once again, temperature seems to have little correlation with rain. Which is strange since summeris warmer and has more rain...
+cor(kaggle_data$temperature, rainObs)
+
+# At this point, I would try to find correlations between the variables in the NOAA dataset and the Kaggle dataset but their dataframe formats are incompatible, data must first be further cleaned and integrated before weather modeling can occur.
+```
+
+
+```{r}
+# In this code block, the datasets are formatted and and shaped to be useful.
+db <- dbConnect(SQLite(), dbname="projdb.sqlite")
+
+# Since seasons are cyclic things, it might be useful to use the date as a predictive variable. However, when using dates as part of the predictive mdoelling, POSIX time in R date format cannot be used. As such, this utility function is used to calculate the number of days from Jan-1 to given date.
+sinceJan1 <- function(date){
+  iv <- interval(as.Date(paste(year(date), "01", "01", sep = "-")), date)
+  iv <- iv %/% days(1)
+  return(iv)
+}
+
+# for both NOAA and Kaggle datasets, the dates were properly formatted from strigns to POSIX time. Then,the utility fuction was used to calculate the date from Jan-1 for each entry.
+
+# For the Kaggle dataset, entries were standardized by reducing hourly obervations into daily observations. For variables other than 'observation', the average was used, for 'observation, the mode was used (since you can't average sunny and cloudy). This way, there is one row for each date.
+kaggle_data <- dbGetQuery(db, "SELECT date, AVG(temperature), AVG(humidity), AVG(pressure), AVG(wind_direction), AVG(wind_speed) FROM k_weather_summary GROUP BY date")
+kaggle_data["date"] <- lapply(kaggle_data["date"], function(x) as.Date(x, format = "%y-%m-%d"))
+kaggle_data <- mutate(kaggle_data, days_since_jan1 = sinceJan1(date))
+
+# For the NOAA dataset, entries were standardized by spreading the stations into separate columns rather than as a cell entry. This way, there is one row for each date.
+noaa_data <- dbGetQuery(db, "SELECT * FROM n_weather_summary")
+noaa_data["date"] <- lapply(noaa_data["date"], function(x) as.Date(x, format = "%Y-%m-%d"))
+obs <- dbGetQuery(db, "SELECT date, observation, COUNT(observation) FROM k_weather_summary GROUP BY date, observation")
+
+# Because of its size, the NOAA dataset had to be split up temporarily for the missmap.
+TMAX <- spread(noaa_data[c("date", "station", "TMAX")], station, TMAX)
+TMAX$date <- NULL
+TMAX <- slice(TMAX, 1:length(kaggle_data$date))
+
+TMIN <- spread(noaa_data[c("date", "station", "TMIN")], station, TMIN)
+TMIN$date <- NULL
+TMIN <- slice(TMIN, 1:length(kaggle_data$date))
+
+PRCP <- spread(noaa_data[c("date", "station", "PRCP")], station, PRCP)
+PRCP$date <-NULL
+PRCP <- slice(PRCP, 1:length(kaggle_data$date))
+
+weather_observation <- group_by(obs, date) %>% slice(which.max(`COUNT(observation)`))
+
+# The missmaps show that there is a significant amount of missing information in the NOAA dataset.
+Amelia::missmap(kaggle_data, main = "missmap for kaggle dataset (without 'observation')")
+Amelia::missmap(TMAX, main = "missmap for NOAA TMAX data")
+Amelia::missmap(TMIN, main = "missmap for NOAA TMIN data")
+Amelia::missmap(PRCP, main = "missmap for NOAA PRCP data")
+Amelia::missmap(weather_observation,main = "missmap for Kaggle 'observation'")
+```
+
+```{r}
+# The next two code blocks are used to fully clean the NOAA dataset. 
+# Firstly, any column that is missing more than 5% of its data is removed. This is to reduce errors associated with calculating with heavily imputed datasets. 5% seemed like a reasonable limit.
+removeInaccurateCol <- function(df){
+  missingValIndex <- sapply(df, function(x) which(is.na(x), arr.ind = TRUE))
+  missingValCount <- sapply(missingValIndex, function(x) length(x))
+  inaccurateCols <- names(missingValCount[missingValCount/length(df[,1]) > 0.05])
+  df2 <- df
+  df2[inaccurateCols] <- NULL
+  return(df2)
+}
+
+TMAX <- removeInaccurateCol(TMAX)
+TMIN <- removeInaccurateCol(TMIN)
+PRCP <- removeInaccurateCol(PRCP)
+
+# The missmaps show a greatly reduced number of missing information.
+Amelia::missmap(TMAX, main = "TMAX initial clean")
+Amelia::missmap(TMIN, main = "TMIN initial clean")
+Amelia::missmap(PRCP, main = "PRCP initial clean")
+```
+
+```{r}
+# Secondly, data is imputed by averaging the daily observations recorded by all the stations. This was chosen over averaging the colum data because the average of a column is meaningless in this context. A row-wise average of max-temperature better represents that day's max-temperature and a row-wise average of precipitation better represents that day's precipitation.
+replaceNAByRow <- function(array){
+  rowMean <- mean(as.vector(t(array)), na.rm = TRUE)
+  d <- array
+  d[is.na(d)] <- rowMean
+  return(d)
+}
+
+for(rowNum in c(1:length(TMAX$`GHCND:USC00190120`))){
+  TMAX[rowNum,] <- replaceNAByRow(TMAX[rowNum,])
+}
+
+for(rowNum in c(1:length(TMIN$`GHCND:USC00190120`))){
+  TMIN[rowNum,] <- replaceNAByRow(TMIN[rowNum,])
+}
+
+for(rowNum in c(1:length(PRCP$`GHCND:USC00190120`))){
+  PRCP[rowNum,] <- replaceNAByRow(PRCP[rowNum,])
+}
+
+# missmaps show that all data is now present. At this pont, all data sets have been standardized and can be merged and used for modelling.
+Amelia::missmap(TMAX, main = "TMAX final clean")
+Amelia::missmap(TMIN, main = "TMIN final clean")
+Amelia::missmap(PRCP, main = "PRCP final clean")
+```
+
+```{r}
+# Since the two datasets have been standardized, then can be merged together into a single dataframe. This dataframe is used for the predictive modelling.
+regression_data_set <- data.frame("days_since_jan1" = kaggle_data$days_since_jan1, "pressure" = kaggle_data$`AVG(pressure)`, "wind_direction" = kaggle_data$`AVG(wind_direction)`, "wind_speed" = kaggle_data$`AVG(wind_speed)`, "TMAX" = TMAX, "TMIN" = TMIN, "PRCP" = PRCP, "observation" = weather_observation$observation)
+
+# final missmap to check if anything is missing.
+Amelia::missmap(regression_data_set, main = "Regression dataset Missmap")
+
+# The data set was split into training and testing sets. Standard split of 70% for training and 30% for testing.
+regression_training <- sample_frac(regression_data_set, 0.7)
+regression_test <- setdiff(regression_data_set, regression_training)
+```
+
+```{r}
+install.packages("e1071")
+install.packages("randomForest")
+library(e1071)
+library(randomForest)
+
+# First modelling uses a Random Forest scheme. Tested for ntree = 4, 50, 100, 200
+model_rf <- randomForest(observation~., ntree=4, data = regression_training)
+plot(model_rf)
+print(model_rf)
+
+model_rf2 <- randomForest(observation~., ntree=50, data = regression_training)
+plot(model_rf2)
+print(model_rf2)
+
+model_rf3 <- randomForest(observation~., ntree=100, data = regression_training)
+plot(model_rf3)
+print(model_rf3)
+
+model_rf4 <- randomForest(observation~., ntree=200, data = regression_training)
+plot(model_rf4)
+print(model_rf4)
+
+# At ntree = 100, there is deminishing returns for fitting. As such, to prevent potential overfitting, ntree was chosen as 100.
+
+# The variables that had the greatest impact on prediction is shown below.
+varImpPlot(model_rf3, sort = T, n.var=10, main="Variables by importance")
+
+# The resultant model was tested using the testing data set.
+preds_rf <- predict(model_rf3, regression_test)
+predicted_rf <- data.frame(regression_test$observation,preds_rf)
+rf_accuracy <- (predicted_rf$regression_test.observation == predicted_rf$preds_rf)
+rf_accuracy <- length(rf_accuracy[(rf_accuracy == TRUE)]) / length(rf_accuracy)
+
+# At an accuracy of 87%, the predictions weren't too bad.
+rf_accuracy
+```
+
+```{r}
+library(class)
+# Second modelling uses a KNN scheme. Tested for k = 1, 5, 9
+model_knn1 <- knn(regression_training[c(1:157)], regression_test[c(1:157)], regression_training$observation, k=1)
+
+model_knn2 <- knn(regression_training[c(1:157)], regression_test[c(1:157)], regression_training$observation, k=5)
+
+model_knn3 <- knn(regression_training[c(1:157)], regression_test[c(1:157)], regression_training$observation, k=9)
+
+predicted_knn1 <- data.frame(regression_test$observation,model_knn1)
+knn_accuracy1 <- (predicted_knn1$regression_test.observation == predicted_knn1$model_knn1)
+knn_accuracy1 <- length(knn_accuracy1[(knn_accuracy1 == TRUE)]) / length(knn_accuracy1)
+
+predicted_knn2 <- data.frame(regression_test$observation,model_knn2)
+knn_accuracy2 <- (predicted_knn2$regression_test.observation == predicted_knn2$model_knn2)
+knn_accuracy2 <- length(knn_accuracy2[(knn_accuracy2 == TRUE)]) / length(knn_accuracy2)
+
+predicted_knn3 <- data.frame(regression_test$observation,model_knn3)
+knn_accuracy3 <- (predicted_knn3$regression_test.observation == predicted_knn3$model_knn3)
+knn_accuracy3 <- length(knn_accuracy3[(knn_accuracy3 == TRUE)]) / length(knn_accuracy3)
+
+# The accuracy seems to be highest when the k value is at 1 at 83% accuracy. This is quite strange. Perhaps the datasets have to be furtehr processed to be more accurate.
+knn_accuracy1
+knn_accuracy2
+knn_accuracy3
+
+# comparing the two models above, it seems that given a host of weather variables, Random Forest was marginally better at predicting the weather.
+```
+
+

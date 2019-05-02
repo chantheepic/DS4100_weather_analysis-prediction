@@ -1,0 +1,5 @@
+"0","# At this point, objects from the workspace was cleared. Then, a missmap was created to find how much of the data imported was missing. This was done using a missmap"
+"0","db <- dbConnect(SQLite(), dbname=""projdb.sqlite"")"
+"0","noaa_data <- dbGetQuery(db, ""SELECT * FROM n_weather_summary"")"
+"0","kaggle_data <- dbGetQuery(db, ""SELECT * FROM k_weather_summary"")"
+"0","Amelia::missmap(noaa_data, main = ""NOAA data Missingness Map"")"

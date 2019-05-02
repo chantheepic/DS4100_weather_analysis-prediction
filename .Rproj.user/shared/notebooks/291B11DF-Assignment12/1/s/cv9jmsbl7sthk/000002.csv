@@ -1,0 +1,6 @@
+"0","```r
+# false positives
+falsePositivesID <- setdiff(survivalActual$PassengerId, survivalPrediction$id)
+falsePositives <- filter(test, test$PassengerId %in% falsePositivesID)
+falsePositives
+```"

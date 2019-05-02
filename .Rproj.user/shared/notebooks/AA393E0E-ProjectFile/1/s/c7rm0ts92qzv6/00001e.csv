@@ -1,0 +1,6 @@
+"0","# The missmaps show that there is a significant amount of missing informatioin in the NOAA dataset.
+Amelia::missmap(kaggle_data, main = ""missmap for kaggle dataset (without 'observation')"")
+# The missmaps show that there is a significant amount of missing informatioin in the NOAA dataset.
+Amelia::missmap(kaggle_data, main = ""missmap for kaggle dataset (without 'observation')"")
+"
+"0","Amelia::missmap(TMAX, main = ""missmap for NOAA TMAX data"")"

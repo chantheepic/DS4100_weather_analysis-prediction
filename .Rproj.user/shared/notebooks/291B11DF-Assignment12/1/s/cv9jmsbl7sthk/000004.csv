@@ -1,0 +1,60 @@
+"0","```r
+# summaries of the false positives and false negatives
+summary(falsePositives)
+```"
+"1","  PassengerId       Survived     Pclass                                          Name   
+ Min.   : 37.0   Min.   :1   Min.   :1.000   Albimona, Mr. Nassef Cassem           : 1  
+ 1st Qu.:225.0   1st Qu.:1   1st Qu.:1.000   Asplund, Miss. Lillian Gertrud        : 1  
+ Median :371.0   Median :1   Median :3.000   Bing, Mr. Lee                         : 1  
+ Mean   :415.6   Mean   :1   Mean   :2.069   Blank, Mr. Henry                      : 1  
+ 3rd Qu.:623.0   3rd Qu.:1   3rd Qu.:3.000   Coutts, Master. William Loch \"William\": 1  
+ Max.   :858.0   Max.   :1   Max.   :3.000   Daly, Mr. Peter Denis                 : 1  
+                                             (Other)                               :23  
+     Sex          Age            SibSp            Parch            Ticket        Fare      
+ female: 2   Min.   : 3.00   Min.   :0.0000   Min.   :0.0000   1601   : 2   Min.   : 0.00  
+ male  :27   1st Qu.:20.00   1st Qu.:0.0000   1st Qu.:0.0000   111428 : 1   1st Qu.:11.24  
+             Median :29.70   Median :0.0000   Median :0.0000   112277 : 1   Median :26.29  
+             Mean   :30.38   Mean   :0.5517   Mean   :0.1724   113055 : 1   Mean   :29.64  
+             3rd Qu.:40.00   3rd Qu.:1.0000   3rd Qu.:0.0000   113786 : 1   3rd Qu.:35.50  
+             Max.   :56.00   Max.   :4.0000   Max.   :2.0000   113794 : 1   Max.   :90.00  
+                                                               (Other):22                  
+     Cabin    Embarked
+        :17    : 0    
+ A26    : 1   C: 8    
+ A31    : 1   Q: 1    
+ C104   : 1   S:20    
+ C126   : 1           
+ C92    : 1           
+ (Other): 7           
+"
+"0","```r
+summary(falseNegatives)
+```"
+"1","  PassengerId       Survived     Pclass                                   Name        Sex    
+ Min.   : 65.0   Min.   :0   Min.   :1.000   Barbara, Miss. Saiide          : 1   female:21  
+ 1st Qu.:213.0   1st Qu.:0   1st Qu.:1.000   Barbara, Mrs. (Catherine David): 1   male  : 9  
+ Median :432.5   Median :0   Median :3.000   Baumann, Mr. John D            : 1              
+ Mean   :468.1   Mean   :0   Mean   :2.333   Baxter, Mr. Quigg Edmond       : 1              
+ 3rd Qu.:763.0   3rd Qu.:0   3rd Qu.:3.000   Boulos, Mrs. Joseph (Sultana)  : 1              
+ Max.   :889.0   Max.   :0   Max.   :3.000   Bourke, Miss. Mary             : 1              
+                                             (Other)                        :24              
+      Age            SibSp         Parch         Ticket        Fare             Cabin   
+ Min.   : 2.00   Min.   :0.0   Min.   :0.0   2691   : 2   Min.   :  6.750          :24  
+ 1st Qu.:23.25   1st Qu.:0.0   1st Qu.:0.0   113501 : 1   1st Qu.:  8.156   B58 B60: 1  
+ Median :29.00   Median :0.0   Median :0.0   113510 : 1   Median : 19.348   B86    : 1  
+ Mean   :26.50   Mean   :0.3   Mean   :0.7   248747 : 1   Mean   : 41.290   C128   : 1  
+ 3rd Qu.:29.70   3rd Qu.:0.0   3rd Qu.:1.0   250651 : 1   3rd Qu.: 29.781   C95    : 1  
+ Max.   :45.00   Max.   :3.0   Max.   :5.0   2678   : 1   Max.   :247.521   D6     : 1  
+                                             (Other):23                     (Other): 1  
+ Embarked
+  : 0    
+ C: 8    
+ Q: 5    
+ S:17    
+         
+         
+         
+"
+"0","```r
+# the most prominent cause of bias seem to be from gender (with females overwhelmingly pronounced alive when they are dead; vise versa for men). Other smaller biases may include PClass mean, and Fare mean/max.
+```"

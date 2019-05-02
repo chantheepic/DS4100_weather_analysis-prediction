@@ -1,0 +1,2 @@
+"0","# because the graph is quite big, it needed to be saved as a separate file"
+"0","ggsave(""TMAX.png"", width = 100, height = 20, units = ""cm"")"

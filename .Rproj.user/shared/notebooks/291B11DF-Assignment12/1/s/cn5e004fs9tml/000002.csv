@@ -1,0 +1,15 @@
+"0","```r
+install.packages(\"formattable\")
+
+```"
+"1","Installing package into ã¤¼ã¸±C:/Users/Chan Min Park/Documents/R/win-library/3.5ã¤¼ã¸²
+(as ã¤¼ã¸±libã¤¼ã¸² is unspecified)
+trying URL 'https://cran.rstudio.com/bin/windows/contrib/3.5/formattable_0.2.0.1.zip'
+Content type 'application/zip' length 278477 bytes (271 KB)
+downloaded 271 KB
+"
+"1","package â€˜formattableâ€™ successfully unpacked and MD5 sums checked
+
+The downloaded binary packages are in
+	C:\Users\Chan Min Park\AppData\Local\Temp\RtmpEdCm7v\downloaded_packages
+"

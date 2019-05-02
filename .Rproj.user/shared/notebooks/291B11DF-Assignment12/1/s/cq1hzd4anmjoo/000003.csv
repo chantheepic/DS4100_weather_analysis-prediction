@@ -1,0 +1,4 @@
+"0","```r
+survivalActual <- filter(test, test$Survived == TRUE)
+survivalActual
+```"

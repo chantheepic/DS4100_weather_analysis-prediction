@@ -1,0 +1,69 @@
+"0","```r
+# construct logistic regression model
+regression <- glm(formula = Survived ~ PassengerId + Age + Pclass + Sex + SibSp + Parch, data = training, family = binomial())
+# test and remove parameters with p-val > 0.05
+summary(regression)
+
+```"
+"1","
+Call:
+glm(formula = Survived ~ PassengerId + Age + Pclass + Sex + SibSp + 
+    Parch, family = binomial(), data = training)
+
+Deviance Residuals: 
+    Min       1Q   Median       3Q      Max  
+-2.6233  -0.5924  -0.4376   0.6034   2.4476  
+
+Coefficients:
+              Estimate Std. Error z value Pr(>|z|)    
+(Intercept)  4.9241686  0.5910086   8.332  < 2e-16 ***
+PassengerId  0.0002795  0.0004160   0.672  0.50163    
+Age         -0.0382499  0.0091632  -4.174 2.99e-05 ***
+Pclass      -1.1017539  0.1409268  -7.818 5.37e-15 ***
+Sexmale     -2.7387682  0.2363169 -11.589  < 2e-16 ***
+SibSp       -0.3862995  0.1336877  -2.890  0.00386 ** 
+Parch       -0.0173592  0.1354174  -0.128  0.89800    
+---
+Signif. codes:  0 â€˜***â€™ 0.001 â€˜**â€™ 0.01 â€˜*â€™ 0.05 â€˜.â€™ 0.1 â€˜ â€™ 1
+
+(Dispersion parameter for binomial family taken to be 1)
+
+    Null deviance: 828.63  on 623  degrees of freedom
+Residual deviance: 557.27  on 617  degrees of freedom
+AIC: 571.27
+
+Number of Fisher Scoring iterations: 5
+"
+"0","```r
+# PassengerID and Parch are not statistically significant
+regression <- glm(formula = Survived ~ Age + Pclass + Sex + SibSp, data = training, family = binomial())
+# that looks better
+summary(regression)
+```"
+"1","
+Call:
+glm(formula = Survived ~ Age + Pclass + Sex + SibSp, family = binomial(), 
+    data = training)
+
+Deviance Residuals: 
+    Min       1Q   Median       3Q      Max  
+-2.6436  -0.5844  -0.4388   0.6081   2.4350  
+
+Coefficients:
+             Estimate Std. Error z value Pr(>|z|)    
+(Intercept)  5.034733   0.562015   8.958  < 2e-16 ***
+Age         -0.038195   0.009142  -4.178 2.94e-05 ***
+Pclass      -1.103073   0.140942  -7.826 5.02e-15 ***
+Sexmale     -2.718939   0.231314 -11.754  < 2e-16 ***
+SibSp       -0.391917   0.128636  -3.047  0.00231 ** 
+---
+Signif. codes:  0 â€˜***â€™ 0.001 â€˜**â€™ 0.01 â€˜*â€™ 0.05 â€˜.â€™ 0.1 â€˜ â€™ 1
+
+(Dispersion parameter for binomial family taken to be 1)
+
+    Null deviance: 828.63  on 623  degrees of freedom
+Residual deviance: 557.73  on 619  degrees of freedom
+AIC: 567.73
+
+Number of Fisher Scoring iterations: 5
+"

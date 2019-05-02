@@ -1,0 +1,7 @@
+"0","```r
+# acccuracy of model: correctlypredicted / actualsurvival
+accuracy <- length(intersect(survivalPrediction$id, survivalActual$PassengerId)) / length(survivalActual$PassengerId)
+formattable::percent(accuracy)
+```"
+"1","[1] 72.38%
+"

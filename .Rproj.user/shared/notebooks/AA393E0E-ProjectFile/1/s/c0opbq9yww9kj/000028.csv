@@ -1,0 +1,5 @@
+"0","# This graph shows the precipitation data observed by the different stations over a span of 6 years. The correlation of pricipation over time is less clear, but there clearly are times where there is greater precipitation."
+"0","ggplot(noaa_data, aes(x = date, y = PRCP, color = station)) + "
+"0","  geom_point() + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + "
+"0","  ggtitle(""Daily Precipitation observed by all weather stations in MA between 2012 and 2017"") +"
+"0","  xlab(""Date"") + ylab(""Recorded Pricipitation in/24hr"")"
